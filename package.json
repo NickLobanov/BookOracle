@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Telegram-бот: выводит строку из книги по номеру страницы",
   "type": "module",
-  "main": "bot.js",
+  "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
