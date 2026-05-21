@@ -15,9 +15,12 @@ if (!token) {
  
 // --- Список книг ---
 const BOOKS = [
-  { id: "crime", title: "Преступление и наказание", file: "./crime.json" },
-  { id: "gogol", title: "Мёртвые души", file: "./gogol.json" },
-  { id: "war", title: "Война и мир", file: "./war.json" },
+  { id: "crime", title: "Преступление и наказание — Ф. Достоевский", file: "./crime.json" },
+  { id: "gogol", title: "Мёртвые души — Н. Гоголь", file: "./gogol.json" },
+  { id: "hugo", title: "Отверженные — В. Гюго", file: "./hugo.json" },
+  { id: "lermontov", title: "Герой нашего времени — М. Лермонтов", file: "./lermontov.json" },
+  { id: "twain", title: "Приключения Тома Сойера — М. Твен", file: "./twain.json" },
+  { id: "war", title: "Война и мир — Л. Толстой", file: "./war.json" },
 ];
  
 // --- Загрузка книг в память ---
@@ -38,6 +41,7 @@ for (const b of BOOKS) {
     pages,
     flat,
     pageInfo,
+    minPage: pageNums[0],
     maxPage: pageNums[pageNums.length - 1],
   };
   console.log(`Загружена книга "${b.title}" — ${pageNums.length} страниц.`);
@@ -98,7 +102,7 @@ function completeLine(flat, idx) {
 function getLine(book, page, line, direction) {
   const info = book.pageInfo[page];
   if (!info) {
-    return { ok: false, error: `В книге нет страницы ${page}. Доступны страницы 1–${book.maxPage}.` };
+    return { ok: false, error: `В книге нет страницы ${page}. Доступны страницы ${book.minPage}–${book.maxPage}.` };
   }
   if (info.count === 0) {
     return { ok: false, error: `На странице ${page} нет текста.` };
@@ -137,6 +141,9 @@ function directionKeyboard() {
     .text("⬆️ Сверху", "dir:top")
     .text("⬇️ Снизу", "dir:bottom");
 }
+function restartKeyboard() {
+  return new InlineKeyboard().text("🔄 Ещё раз", "restart");
+}
  
 // --- /start ---
 bot.command("start", async (ctx) => {
@@ -157,10 +164,11 @@ bot.callbackQuery(/^book:(.+)$/, async (ctx) => {
   ctx.session.bookId = bookId;
   ctx.session.step = "awaiting_page";
   await ctx.answerCallbackQuery();
+  const lib = library[bookId];
   await ctx.reply(
     `Книга: ${book.title}\n\n` +
-      "Введи номер страницы.\n" +
-      "Можно сразу и строку через пробел — например: 50 3"
+      `Доступны страницы ${lib.minPage}–${lib.maxPage}.\n` +
+      "Введи номер страницы. Можно сразу и строку через пробел — например: 50 3"
   );
 });
  
@@ -179,7 +187,7 @@ bot.callbackQuery(/^dir:(top|bottom)$/, async (ctx) => {
   const result = getLine(book, page, line, direction);
  
   if (!result.ok) {
-    await ctx.reply(`⚠️ ${result.error}\n\nПопробуй снова — /start`);
+    await ctx.reply(`⚠️ ${result.error}`, { reply_markup: restartKeyboard() });
     return;
   }
  
@@ -193,8 +201,14 @@ bot.callbackQuery(/^dir:(top|bottom)$/, async (ctx) => {
       msg += `\n${toSuper(f.num)} ${f.text}`;
     }
   }
-  msg += `\n\nЕщё раз — /start`;
-  await ctx.reply(msg);
+  await ctx.reply(msg, { reply_markup: restartKeyboard() });
+});
+ 
+// --- Кнопка «Ещё раз» — то же, что /start ---
+bot.callbackQuery("restart", async (ctx) => {
+  ctx.session = initialSession();
+  await ctx.answerCallbackQuery();
+  await ctx.reply("Выбери книгу:", { reply_markup: booksKeyboard() });
 });
  
 // --- Текстовые сообщения ---
@@ -216,7 +230,7 @@ bot.on("message:text", async (ctx) => {
     const book = library[ctx.session.bookId];
     const info = book.pageInfo[page];
     if (!info) {
-      await ctx.reply(`В книге нет страницы ${page}. Доступны страницы 1–${book.maxPage}. Введи ещё раз:`);
+      await ctx.reply(`В книге нет страницы ${page}. Доступны страницы ${book.minPage}–${book.maxPage}. Введи ещё раз:`);
       return;
     }
     if (info.count === 0) {
@@ -277,4 +291,3 @@ bot.catch((err) => {
  
 bot.start();
 console.log("Бот запущен. Останови — Ctrl+C.");
- 
